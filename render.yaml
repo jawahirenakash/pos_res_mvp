@@ -1,0 +1,52 @@
+# Render Blueprint — deploys the whole POS (web service + managed PostgreSQL).
+# Create a new Blueprint Instance in the Render dashboard and pick this repo;
+# Render provisions the database and web service from this file.
+#
+# After the first deploy:
+#   - Demo owner password: Dashboard → posres-mvp → Environment →
+#     SEED_OWNER_PASSWORD (Render generates it once).
+#   - Sign in at your service URL as owner@tabletap.local and change the
+#     password — the app forces it on first sign-in.
+#   - Every redeploy re-runs db:seed, so the demo owner credential resets to
+#     SEED_OWNER_PASSWORD and mustChangePassword re-enables. Remove
+#     `&& npm run db:seed` from preDeployCommand once you stop wanting that.
+#
+# Redis (shared rate-limit/cache across instances) is optional and paid:
+# add a Render Redis instance and set REDIS_URL to its internal connection
+# string. Without it the app uses the in-process fallback (fine for one
+# instance, which is what this blueprint runs).
+
+databases:
+  - name: posres-mvp-db
+    databaseName: tabletap
+    user: tabletap
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: posres-mvp
+    runtime: node
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    buildCommand: npm ci && npx prisma generate
+    preDeployCommand: npx prisma migrate deploy && npm run db:seed
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PORT
+        value: "10000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: posres-mvp-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SEED_OWNER_EMAIL
+        value: owner@tabletap.local
+      - key: SEED_OWNER_PASSWORD
+        generateValue: true

@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env before starting the database}
+      POSTGRES_DB: ${POSTGRES_DB:-tabletap}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - tabletap_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tabletap}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional, for scaling beyond a single app instance. Shared rate limiting and
+  # caching only activate when REDIS_URL is set; otherwise the app uses its
+  # in-process fallback. Enable with:  docker compose --profile scale up -d
+  redis:
+    image: redis:7-alpine
+    profiles: ["scale"]
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  tabletap_db:
