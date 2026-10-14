@@ -27,14 +27,14 @@ Demo login: `owner@tabletap.local` / the `SEED_OWNER_PASSWORD` from your `.env`.
 ## Deploy to Render
 `render.yaml` is a Render Blueprint: one click provisions the Node web service plus a managed PostgreSQL and wires `DATABASE_URL`, a generated `JWT_SECRET`, and a generated `SEED_OWNER_PASSWORD`.
 
-1. Push this repo to GitHub (e.g. `posRes_mvp`).
+1. Push this repo to GitHub (e.g. `pos_res_mvp`).
 2. In the Render dashboard: **New → Blueprint Instance** → select the repo. Render detects `render.yaml` and creates the database + web service.
 3. After the first deploy: **Dashboard → posres-mvp → Environment → SEED_OWNER_PASSWORD** to get the demo owner password.
 4. Open the service URL and sign in as `owner@tabletap.local` — the app forces a password change on first sign-in.
 
 Notes:
 - The free Postgres instance auto-expires after 30 days; upgrade to a paid tier for a persistent app.
-- Every redeploy re-runs `prisma migrate deploy` + `npm run db:seed`, so the demo owner resets to `SEED_OWNER_PASSWORD` and `mustChangePassword`. Remove `&& npm run db:seed` from `preDeployCommand` once you have real data.
+- `preDeployCommand` is paid-only, so migrations and the first-run seed run in `startCommand` (`prisma migrate deploy && npm run db:seed && npm start`). With `SEED_SKIP_IF_DATA=1` the seed is skipped once data exists, so restarts and spin-ups never reset the demo data. Set it to `0` (or run `npm run db:seed` from the service **Shell**) to re-seed.
 - Redis (shared rate-limit/cache across instances) is optional and paid: add a Render Redis and set `REDIS_URL`. One instance runs fine without it.
 - Free web services spin down when idle; the first request after idle takes a few seconds to wake.
 

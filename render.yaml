@@ -2,14 +2,17 @@
 # Create a new Blueprint Instance in the Render dashboard and pick this repo;
 # Render provisions the database and web service from this file.
 #
+# `preDeployCommand` is a paid-plan feature, so migrations + the first-run seed
+# run in startCommand instead. With SEED_SKIP_IF_DATA=1 the seed is skipped
+# once data exists, so restarts and free-tier spin-ups never reset anything.
+#
 # After the first deploy:
 #   - Demo owner password: Dashboard → posres-mvp → Environment →
 #     SEED_OWNER_PASSWORD (Render generates it once).
 #   - Sign in at your service URL as owner@tabletap.local and change the
 #     password — the app forces it on first sign-in.
-#   - Every redeploy re-runs db:seed, so the demo owner credential resets to
-#     SEED_OWNER_PASSWORD and mustChangePassword re-enables. Remove
-#     `&& npm run db:seed` from preDeployCommand once you stop wanting that.
+#   - To re-seed the demo data later, set SEED_SKIP_IF_DATA to 0 (or run
+#     `npm run db:seed` from the service Shell) and restart the service.
 #
 # Redis (shared rate-limit/cache across instances) is optional and paid:
 # add a Render Redis instance and set REDIS_URL to its internal connection
@@ -30,9 +33,12 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /api/health
-    buildCommand: npm ci && npx prisma generate
-    preDeployCommand: npx prisma migrate deploy && npm run db:seed
-    startCommand: npm start
+    # --include=dev keeps the `prisma` CLI available at runtime even though
+    # NODE_ENV=production is set for the service.
+    buildCommand: npm ci --include=dev && npx prisma generate
+    # Migrations must succeed before the app boots; the seed only writes when
+    # the database is empty (see SEED_SKIP_IF_DATA below).
+    startCommand: npx prisma migrate deploy && npm run db:seed && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -40,6 +46,8 @@ services:
         value: "1"
       - key: PORT
         value: "10000"
+      - key: SEED_SKIP_IF_DATA
+        value: "1"
       - key: DATABASE_URL
         fromDatabase:
           name: posres-mvp-db

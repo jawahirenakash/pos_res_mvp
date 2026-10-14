@@ -5,6 +5,12 @@ import bcrypt from 'bcryptjs';
 import { checkPassword } from '../src/validate.js';
 
 const db = new PrismaClient();
+// Hosts like Render run the seed on every boot; skip when data already exists.
+if (process.env.SEED_SKIP_IF_DATA === '1' && (await db.user.count()) > 0) {
+  console.log('Existing data found — skipping seed (SEED_SKIP_IF_DATA=1).');
+  await db.$disconnect();
+  process.exit(0);
+}
 const ownerEmail = (process.env.SEED_OWNER_EMAIL || 'owner@tabletap.local').toLowerCase();
 const provided = (process.env.SEED_OWNER_PASSWORD || '').trim();
 // Never ship a hardcoded password: use the one from .env, or generate a random one and print it once.
